@@ -22,6 +22,7 @@ from keras import backend as K
 from sklearn.model_selection import train_test_split
 from PIL import Image
 from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 
 # 分類クラス
@@ -32,34 +33,52 @@ nb_epoch = 100
 img_rows = 28
 img_cols = 28
 
-image_list = []
-label_list = []
+model_filename = 'model/cnn_model.json'
+weights_filename = 'model/mnist_model.hdf5'
 
-for dir in os.listdir("test_image"):
-    if dir == ".DS_Store":
-        continue
+def print_cmx(y_true, y_pred):
+    labels = sorted(list(set(y_true)))
+    cmx_data = confusion_matrix(y_true, y_pred, labels=labels)
 
-    dir1 = "test_image/" + dir
-    # フォルダ"0"のラベルは"0"、フォルダ"1"のラベルは"1", ... , フォルダ"9"のラベルは"9"
-    label = dir
+    df_cmx = pd.DataFrame(cmx_data, index=labels, columns=labels)
 
-    for file in os.listdir(dir1):
-        if file != ".DS_Store":
-        # Macだと、if file != ".DS_Store": 　なのかもしれない。。。
-            # 配列label_listに正解ラベルを追加
-            label_list.append(label)
-            filepath = dir1 + "/" + file
-            # 画像を読み込み、グレースケールに変換し、28x28pixelに変換し、numpy配列へ変換する。
-            # 画像の1ピクセルは、それぞれが0-255の数値。
-            image = np.array(Image.open(filepath).convert("L").resize((28, 28)))
-            # print(filepath)
-            # さらにフラットな1次元配列に変換。
-            image = image.reshape(1, 784).astype("float32")[0]
-            # 出来上がった配列をimage_listに追加。
-            image_list.append(image / 255.)
+    plt.figure(figsize = (10,7))
+    sn.heatmap(df_cmx, annot=True)
+    plt.savefig('conf_mat.png')
 
-image_list = np.array(image_list)
-label_list = np.array(label_list)
+def read_images():
+    image_list = []
+    label_list = []
+
+    for dir in os.listdir("test_image"):
+        if dir == ".DS_Store":
+            continue
+
+        dir1 = "test_image/" + dir
+        # フォルダ"0"のラベルは"0"、フォルダ"1"のラベルは"1", ... , フォルダ"9"のラベルは"9"
+        label = dir
+
+        for file in os.listdir(dir1):
+            if file != ".DS_Store":
+            # Macだと、if file != ".DS_Store": 　なのかもしれない。。。
+                # 配列label_listに正解ラベルを追加
+                label_list.append(label)
+                filepath = dir1 + "/" + file
+                # 画像を読み込み、グレースケールに変換し、28x28pixelに変換し、numpy配列へ変換する。
+                # 画像の1ピクセルは、それぞれが0-255の数値。
+                image = np.array(Image.open(filepath).convert("L").resize((28, 28)))
+                # print(filepath)
+                # さらにフラットな1次元配列に変換。
+                image = image.reshape(1, 784).astype("float32")[0]
+                # 出来上がった配列をimage_listに追加。
+                image_list.append(image / 255.)
+
+    image_list = np.array(image_list)
+    label_list = np.array(label_list)
+
+    return image_list, label_list
+
+image_list, label_list = read_images()
 
 X_train, X_test, y_train, y_test = train_test_split(image_list, label_list, test_size=0.3, random_state=111)
 
@@ -81,9 +100,6 @@ for file in files:
 print(test_label)
 quit()
 '''
-
-model_filename = 'model/cnn_model.json'
-weights_filename = 'model/mnist_model.hdf5'
 
 json_string = open(model_filename).read()
 model = model_from_json(json_string)
@@ -133,3 +149,8 @@ plt.xlabel('epoch')
 plt.ylabel('loss')
 plt.legend()
 plt.savefig('loss_graph.png')
+
+predict_classes = model.predict_classes(X_test, batch_size=32)
+true_classes = np.argmax(Y_test,1)
+print(confusion_matrix(true_classes, predict_classes))
+print_cmx(true_classes, predict_classes)
